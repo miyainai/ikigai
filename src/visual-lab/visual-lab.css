@@ -1,0 +1,80 @@
+.visual-lab {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  color: rgba(231, 239, 241, 0.78);
+  background: #010207;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.lab-canvas { position: absolute; inset: 0; }
+.lab-canvas canvas { display: block; touch-action: none; }
+
+.lab-mark {
+  position: absolute;
+  top: 24px;
+  left: 28px;
+  color: rgba(220, 230, 232, 0.46);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.lab-actions {
+  position: absolute;
+  top: 20px;
+  right: 22px;
+  display: flex;
+  gap: 6px;
+}
+
+.lab-actions button,
+.lab-controls button {
+  display: grid;
+  place-items: center;
+  color: rgba(220, 231, 233, 0.66);
+  background: rgba(3, 6, 13, 0.72);
+  border: 1px solid rgba(185, 214, 220, 0.16);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.lab-actions button { width: 36px; height: 36px; padding: 0; }
+.lab-actions button:hover { color: #f1f8f8; border-color: rgba(185, 214, 220, 0.34); }
+
+.lab-hint {
+  position: absolute;
+  bottom: 24px;
+  left: 28px;
+  color: rgba(211, 223, 225, 0.38);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.lab-controls {
+  position: absolute;
+  top: 64px;
+  right: 22px;
+  width: 238px;
+  padding: 14px;
+  background: rgba(2, 5, 11, 0.9);
+  border: 1px solid rgba(185, 214, 220, 0.14);
+  font-size: 0.68rem;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+}
+
+.lab-controls header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; color: rgba(235, 242, 243, 0.72); }
+.lab-controls header button { min-height: 24px; padding: 0 7px; font-size: 0.62rem; }
+.lab-controls label { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; margin-top: 9px; color: rgba(218, 228, 230, 0.52); }
+.lab-controls output { color: rgba(150, 218, 229, 0.72); font-variant-numeric: tabular-nums; }
+.lab-controls input { grid-column: 1 / -1; width: 100%; accent-color: #69bfd0; }
+
+@media (max-width: 680px) {
+  .lab-mark { top: 18px; left: 18px; }
+  .lab-actions { top: 14px; right: 14px; }
+  .lab-hint { bottom: 18px; left: 18px; }
+  .lab-controls { top: 58px; right: 14px; width: min(238px, calc(100vw - 28px)); max-height: calc(100vh - 82px); overflow: auto; }
+}
