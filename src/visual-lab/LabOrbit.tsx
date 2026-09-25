@@ -7,6 +7,7 @@ import {
   CatmullRomCurve3,
   Color,
   Group,
+  MathUtils,
   MeshBasicMaterial,
   PointsMaterial,
   TubeGeometry,
@@ -15,9 +16,9 @@ import {
 import { OuterPlanet } from "./OuterPlanet";
 import type { LabParameters } from "./types";
 
-interface LabOrbitProps { parameters: LabParameters; initialProgress?: number; }
+interface LabOrbitProps { parameters: LabParameters; initialProgress?: number; onPlanetPosition?: (position: Vector3) => void; captureActive?: boolean; captureColor?: string; }
 
-export function LabOrbit({ parameters, initialProgress=0.09 }: LabOrbitProps) {
+export function LabOrbit({ parameters, initialProgress=0.09, onPlanetPosition, captureActive=false, captureColor="#b89cff" }: LabOrbitProps) {
   const planetAnchor = useRef<Group>(null);
   const planetPoint = useMemo(() => new Vector3(), []);
   const curve = useMemo(() => {
@@ -46,10 +47,12 @@ export function LabOrbit({ parameters, initialProgress=0.09 }: LabOrbitProps) {
     const fadeShape = wave + (smoothWave - wave) * parameters.orbitFadeSmoothness;
     const fade = 1 - parameters.orbitFadeVariation * (0.28 + fadeShape * 0.72);
     const brightness = parameters.farBrightness + near * (parameters.nearBrightness - parameters.farBrightness);
+    const coreOpacity = parameters.orbitCoreOpacity * brightness * fade;
     return {
       core: new TubeGeometry(segmentCurve, 7, parameters.orbitCoreWidth, 5, false),
       glow: new TubeGeometry(segmentCurve, 7, parameters.orbitGlowWidth, 5, false),
-      coreMaterial: new MeshBasicMaterial({ color: new Color("#62d2df"), transparent: true, opacity: parameters.orbitCoreOpacity * brightness * fade, depthTest: true, depthWrite: true }),
+      coreOpacity,
+      coreMaterial: new MeshBasicMaterial({ color: new Color("#62d2df"), transparent: true, opacity: coreOpacity, depthTest: true, depthWrite: true }),
       glowMaterial: new MeshBasicMaterial({ color: new Color("#4b62c7"), transparent: true, opacity: parameters.orbitGlowOpacity * brightness * fade, depthTest: true, depthWrite: false, blending: AdditiveBlending }),
     };
   }), [curve, parameters.farBrightness, parameters.nearBrightness, parameters.orbitCoreOpacity, parameters.orbitCoreWidth, parameters.orbitDepth, parameters.orbitFadeSmoothness, parameters.orbitFadeVariation, parameters.orbitGlowOpacity, parameters.orbitGlowWidth]);
@@ -66,18 +69,26 @@ export function LabOrbit({ parameters, initialProgress=0.09 }: LabOrbitProps) {
     return geometry;
   }, [curve]);
   const pointMaterial = useMemo(() => new PointsMaterial({ color: "#a3f2ff", size: 0.028, transparent: true, opacity: 0, blending: AdditiveBlending, depthWrite: false, sizeAttenuation: true }), []);
+  const baseOrbitColor = useMemo(() => new Color("#62d2df"), []);
+  const captureOrbitColor = useMemo(() => new Color(captureColor), [captureColor]);
 
   useEffect(() => () => {
     segments.forEach((segment) => { segment.core.dispose(); segment.glow.dispose(); segment.coreMaterial.dispose(); segment.glowMaterial.dispose(); });
     energyPoints.dispose(); pointMaterial.dispose();
   }, [energyPoints, pointMaterial, segments]);
 
-  useFrame((state) => {
+  useFrame((state,delta) => {
     pointMaterial.opacity = parameters.orbitEnergyPointIntensity * 0.72;
+    segments.forEach((segment, index) => {
+      const onCaptureArc = captureActive && index >= 1 && index <= 5;
+      segment.coreMaterial.opacity = MathUtils.damp(segment.coreMaterial.opacity, segment.coreOpacity + (onCaptureArc ? 0.2 : 0), 7, delta);
+      segment.coreMaterial.color.lerp(onCaptureArc ? captureOrbitColor : baseOrbitColor, 1 - Math.exp(-7 * delta));
+    });
     if (!planetAnchor.current) return;
     const progress = (initialProgress + state.clock.elapsedTime * 0.0075) % 1;
     curve.getPointAt(progress, planetPoint);
     planetAnchor.current.position.copy(planetPoint);
+    onPlanetPosition?.(planetPoint);
   });
 
   return (
