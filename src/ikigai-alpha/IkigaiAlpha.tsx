@@ -5,22 +5,14 @@ import "@fontsource-variable/newsreader";
 import { analyzeCenter } from "./centerAnalysis";
 import { fieldConfigs, fieldsById } from "./fieldConfig";
 import { IkigaiAlphaScene } from "./IkigaiAlphaScene";
-import type { FieldId, FieldReflections, Reflection } from "./types";
+import type { FieldId, Reflection } from "./types";
+import { useCloudReflections } from "../backend/useCloudReflections";
+import { EmailResults } from "../backend/EmailResults";
+import { seedFromId, storageKey, legacyLoveKey } from "../backend/reflectionStorage";
 import "./ikigai-alpha.css";
 
-const storageKey = (fieldId: FieldId) => `locus-reflections-${fieldId}-v1`;
-const legacyLoveKey = "locus-love-reflections-v1";
 type FlightPoint = { x: number; y: number };
 type SubmissionFlight = { id: string; label: string; fieldId: FieldId; start: FlightPoint; seedScaleY: number };
-
-function seedFromId(value: string) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 4294967295;
-}
 
 function submissionPath(start: FlightPoint, landing: FlightPoint) {
   const { x: landingX, y: landingY } = landing;
@@ -30,45 +22,8 @@ function submissionPath(start: FlightPoint, landing: FlightPoint) {
   return `M ${start.x} ${start.y} Q ${controlX} ${controlY} ${landingX} ${landingY}`;
 }
 
-function migrateReflection(value: unknown, fieldId: FieldId): Reflection | null {
-  if (!value || typeof value !== "object") return null;
-  const source = value as Record<string, unknown>;
-  const id = typeof source.id === "string" ? source.id : crypto.randomUUID();
-  const labelSource = source.label ?? source.displayLabel;
-  const notesSource = source.notes ?? source.fullText ?? source.thought;
-  if (typeof labelSource !== "string" || !labelSource.trim()) return null;
-  return {
-    id,
-    fieldId,
-    label: labelSource.trim().slice(0, 40),
-    notes: typeof notesSource === "string" && notesSource.trim() ? notesSource.trim().slice(0, 600) : undefined,
-    createdAt: typeof source.createdAt === "number" ? source.createdAt : Date.now(),
-    positionSeed: typeof source.positionSeed === "number" ? Math.abs(source.positionSeed % 1) : seedFromId(id),
-  };
-}
-
-function loadField(fieldId: FieldId): Reflection[] {
-  try {
-    const raw = localStorage.getItem(storageKey(fieldId)) ?? (fieldId === "love" ? localStorage.getItem(legacyLoveKey) : null);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map((value) => migrateReflection(value, fieldId)).filter((value): value is Reflection => value !== null).slice(-24) : [];
-  } catch {
-    return [];
-  }
-}
-
-function loadReflections(): FieldReflections {
-  return {
-    love: loadField("love"),
-    ability: loadField("ability"),
-    meaning: loadField("meaning"),
-    paid: loadField("paid"),
-  };
-}
-
 export function IkigaiAlpha() {
-  const [reflections, setReflections] = useState<FieldReflections>(loadReflections);
+  const { reflections, setReflections, status: syncStatus, storageFailed, retrySync } = useCloudReflections();
   const [panelFieldId, setPanelFieldId] = useState<FieldId>("love");
   const [focusedFieldId, setFocusedFieldId] = useState<FieldId | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -107,13 +62,6 @@ export function IkigaiAlpha() {
   const reflectionById = useMemo(() => new Map(Object.values(reflections).flat().map((reflection) => [reflection.id, reflection])), [reflections]);
   const evidenceReflections = selectedEvidenceIds.map((id) => reflectionById.get(id)).filter((reflection): reflection is Reflection => Boolean(reflection));
   const showCenterSummary = summaryOpen || focusedFieldId === null;
-
-  useEffect(() => {
-    fieldConfigs.forEach((field) => {
-      if (reflections[field.id].length) localStorage.setItem(storageKey(field.id), JSON.stringify(reflections[field.id]));
-      else localStorage.removeItem(storageKey(field.id));
-    });
-  }, [reflections]);
 
   useEffect(() => {
     if (!selected) return;
@@ -317,8 +265,10 @@ export function IkigaiAlpha() {
       setClearConfirmation("field");
       return;
     }
-    localStorage.removeItem(storageKey(panelFieldId));
-    if (panelFieldId === "love") localStorage.removeItem(legacyLoveKey);
+    try {
+      localStorage.removeItem(storageKey(panelFieldId));
+      if (panelFieldId === "love") localStorage.removeItem(legacyLoveKey);
+    } catch { /* Cloud deletion still proceeds when browser storage is unavailable. */ }
     setReflections((current) => ({ ...current, [panelFieldId]: [] }));
     setSelectedId(null);
     setHoveredId(null);
@@ -330,8 +280,10 @@ export function IkigaiAlpha() {
       setClearConfirmation("map");
       return;
     }
-    fieldConfigs.forEach((field) => localStorage.removeItem(storageKey(field.id)));
-    localStorage.removeItem(legacyLoveKey);
+    try {
+      fieldConfigs.forEach((field) => localStorage.removeItem(storageKey(field.id)));
+      localStorage.removeItem(legacyLoveKey);
+    } catch { /* Cloud deletion still proceeds when browser storage is unavailable. */ }
     setReflections({ love: [], ability: [], meaning: [], paid: [] });
     setSelectedEvidenceIds([]);
     setClearConfirmation(null);
@@ -374,6 +326,11 @@ export function IkigaiAlpha() {
       {focusedFieldId ? <div className="overview-navigation"><button className="alpha-overview" type="button" onClick={returnToOverview}><ArrowLeft size={18} strokeWidth={1.7} />Back to overview</button><span>Press Esc to return</span></div> : null}
       {escapeHintVisible ? <div className="escape-hint">Press Esc anytime to return to your map.</div> : null}
       <aside ref={panelRef} className="love-panel">
+        <div className="cloud-save-status" role="status">
+          <span>{storageFailed ? "Browser backup unavailable" : ({ connecting: "Connecting your map...", saving: "Saving...", saved: "Saved to your cloud map", offline: "Saved on this device. Waiting for connection.", error: "Saved on this device. Cloud sync paused.", "session-lost": "Cloud session lost. Your map is saved on this device." })[syncStatus]}</span>
+          {syncStatus === "error" || syncStatus === "offline" ? <button type="button" onClick={retrySync}>Retry</button> : null}
+          <details><summary>About saving</summary><p>Your reflections and generated insights are stored in Locus's cloud database, linked to this browser. Other visitors cannot access them; Locus's operator can administer the data. Clearing browser data loses access to this anonymous map. Use Clear map to remove its saved reflections and results.</p></details>
+        </div>
         {showCenterSummary ? (
           <section className="center-summary">
             <div className="reflection-heading"><span>Your evolving map</span>{focusedFieldId ? <button type="button" aria-label="Close summary" onClick={() => setSummaryOpen(false)}><X size={15} /></button> : null}</div>
@@ -394,7 +351,8 @@ export function IkigaiAlpha() {
             <div className="insight-takeaway"><span>Takeaway so far</span><strong>{comprehensive.takeaway.title}</strong><p>{comprehensive.takeaway.explanation}</p>{comprehensive.takeaway.evidenceReflectionIds.length ? <button type="button" onClick={() => setSelectedEvidenceIds(comprehensive.takeaway.evidenceReflectionIds)}>See the reflections behind this</button> : null}</div>
             <div className="insight-next-step"><span>Explore next</span><strong>{comprehensive.nextStep.title}</strong><p>{comprehensive.nextStep.prompt}</p>{comprehensive.nextStep.fieldId ? <button type="button" onClick={() => focusField(comprehensive.nextStep.fieldId as FieldId)}>Open this field <ArrowRight size={14} strokeWidth={1.5} /></button> : null}</div>
             {evidenceReflections.length ? <div className="insight-section evidence-section"><span>Evidence behind the insight</span>{evidenceReflections.map((reflection) => <blockquote key={reflection.id}><strong>{reflection.label}</strong>{reflection.notes ? <p>{reflection.notes}</p> : null}</blockquote>)}</div> : null}
-            {Object.values(reflections).some((items) => items.length > 0) ? <div className="data-controls"><button type="button" className={clearConfirmation === "map" ? "is-confirming" : ""} onClick={clearMap}>{clearConfirmation === "map" ? "Confirm clear my map" : "Clear my map"}</button>{clearConfirmation === "map" ? <button type="button" onClick={() => setClearConfirmation(null)}>Cancel</button> : null}<small>Stored only in this browser.</small></div> : null}
+            {analysis.totalReflections > 0 ? <EmailResults saved={syncStatus === "saved"} /> : null}
+            {Object.values(reflections).some((items) => items.length > 0) ? <div className="data-controls"><button type="button" className={clearConfirmation === "map" ? "is-confirming" : ""} onClick={clearMap}>{clearConfirmation === "map" ? "Confirm clear my map" : "Clear my map"}</button>{clearConfirmation === "map" ? <button type="button" onClick={() => setClearConfirmation(null)}>Cancel</button> : null}<small>Clears your saved reflections and cloud insights.</small></div> : null}
           </section>
         ) : (
           <>

@@ -659,3 +659,14 @@
   .alpha-field-label.is-guided strong { filter: brightness(1.2); }
   .alpha-field-label.is-guided::after { opacity: 0.55; transform: scale(1); }
 }
+.cloud-save-status { margin: 0 0 22px; color: #9eafb6; font-size: 12px; line-height: 1.6; }
+.cloud-save-status button { margin-left: 10px; padding: 2px 4px; border: 0; background: transparent; color: #c9e6e0; text-decoration: underline; cursor: pointer; }
+.cloud-save-status details { margin-top: 5px; }
+.cloud-save-status summary { cursor: pointer; }
+.cloud-save-status details p { margin: 8px 0; font-size: 12px; line-height: 1.6; }
+.email-results { border-top: 1px solid #ffffff20; padding: 24px 0; }
+.email-results button { display: inline-flex; align-items: center; gap: 8px; padding: 10px 0; border: 0; background: transparent; color: #cae4e2; cursor: pointer; font: inherit; }
+.email-results button:disabled { opacity: .45; cursor: default; }
+.email-results label { display: grid; gap: 8px; margin-top: 16px; font-size: 14px; }
+.email-results input { width: 100%; box-sizing: border-box; padding: 12px 0; background: transparent; border: 0; border-bottom: 1px solid #ffffff50; color: inherit; font: inherit; font-size: 16px; }
+.email-results p { font-size: 13px; line-height: 1.6; color: #a1b7b8; }

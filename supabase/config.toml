@@ -1,0 +1,3 @@
+[functions.email-results]
+# The function verifies the bearer token with Auth /user before any work.
+verify_jwt = false

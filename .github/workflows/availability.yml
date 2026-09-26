@@ -1,0 +1,27 @@
+name: Locus availability
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+permissions: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check landing page and app route
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in / /ikigai-alpha; do
+            curl --fail --silent --show-error --retry 2 --max-time 20 "https://find-your-locus.vercel.app$path" -o /tmp/page.html
+            grep -qi '<title>Locus</title>' /tmp/page.html
+          done
+      - name: Check Supabase Auth health without creating users
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 2 --max-time 20 \
+            -H 'apikey: sb_publishable_BZexUL8uACRt8Rg23Pdrww_c6lSzKjF' \
+            https://psaddlwwgwqpeuyyqzjt.supabase.co/auth/v1/health -o /tmp/auth.json
+          node -e 'const v=JSON.parse(require("fs").readFileSync("/tmp/auth.json","utf8")); if(v.name!=="GoTrue") process.exit(1)'
