@@ -1,6 +1,7 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight } from "lucide-react";
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LandingScene } from "./LandingScene";
+import { nextStoryStop } from "./storyNavigation";
 import "./landing.css";
 
 function clamp(value: number, min = 0, max = 1) {
@@ -30,7 +31,7 @@ function MobileStory({ step }: { step: number }) {
       {step === 0 ? <>
         <p className="story-kicker">A living map of purpose</p>
         <h1>What is your Ikigai?</h1>
-        <p className="mobile-story-lead">Ikigai is a Japanese concept for the sense of purpose that makes life feel worth living.</p>
+        <p className="mobile-story-lead">A short reflection exercise to notice what matters to you and find a small next step.</p>
       </> : null}
 
       {step === 1 ? <p className="mobile-story-lead">It is often found somewhere between what you love, what you’re good at, what the world needs, and what can sustain you.</p> : null}
@@ -62,7 +63,7 @@ function MobileStory({ step }: { step: number }) {
       {step === 6 ? <>
         <p className="story-kicker">Your world begins here</p>
         <h2>Ready to find your Locus?</h2>
-        <p className="mobile-story-lead">Start with what you know.<br />Let the pattern emerge from there.</p>
+        <p className="mobile-story-lead">Add a few words to each field. Review what connects them. Take your reflection with you as a PDF.</p>
       </> : null}
     </section>
   );
@@ -151,18 +152,27 @@ export function LandingExperience() {
     if (isLastMobileStep) enterWorld();
     else setMobileStep((step) => Math.min(step + 1, mobileProgressSteps.length - 1));
   };
+  const moveDesktopStory = (direction: 1 | -1) => {
+    const distance = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+    window.scrollTo({
+      top: nextStoryStop(progressRef.current, direction) * distance,
+      behavior: reducedMotion ? "instant" : "smooth",
+    });
+  };
 
   return (
     <main className={`landing-page chapter-${chapter}${isMobile ? " is-mobile-story" : ""}${entering ? " is-entering" : ""}`}>
       <LandingScene progress={progress} entering={entering} reducedMotion={reducedMotion} mobile={isMobile} />
       <header className="landing-header">
         <a href="/" aria-label="Locus home">Locus</a>
+        <button className="landing-start" type="button" disabled={entering} onClick={enterWorld}>Start reflecting <ArrowRight size={16} aria-hidden="true" /></button>
       </header>
 
       {!isMobile ? <div className="landing-story" aria-live="off">
         <StoryBeat progress={progress} range={[-0.01, 0, 0.05, 0.065]} className="opening-beat">
           <p className="story-kicker">A living map of purpose</p>
           <h1>What is your Ikigai?</h1>
+          <p className="opening-purpose">A short reflection exercise to notice what matters to you and find a small next step.</p>
         </StoryBeat>
         <StoryBeat progress={progress} range={[0.065, 0.075, 0.12, 0.13]}>
           <p className="story-lead">Ikigai is a Japanese concept for the sense of purpose that makes life feel worth living.</p>
@@ -206,8 +216,8 @@ export function LandingExperience() {
         <StoryBeat progress={progress} range={[0.765, 0.805, 1, 1.01]} className="ready-beat">
           <p className="story-kicker">Your world begins here</p>
           <h2>Ready to find your Locus?</h2>
-          <p>Start with what you know.<br />Let the pattern emerge from there.</p>
-          <button type="button" onClick={enterWorld}>Enter your world <ArrowRight size={18} strokeWidth={1.5} /></button>
+          <p>Add a few words to each field. Review what connects them. Take your reflection with you as a PDF.</p>
+          <button type="button" disabled={entering} onClick={enterWorld}>Start my reflection <ArrowRight size={18} strokeWidth={1.5} /></button>
         </StoryBeat>
       </div> : <>
         <MobileStory step={mobileStep} />
@@ -216,12 +226,18 @@ export function LandingExperience() {
             <ArrowLeft size={18} strokeWidth={1.5} />
           </button>
           <button type="button" className="mobile-story-next" onClick={advanceMobileStory}>
-            {isLastMobileStep ? "Enter your world" : "Continue"}<ArrowRight size={18} strokeWidth={1.5} />
+            {isLastMobileStep ? "Start my reflection" : "Continue"}<ArrowRight size={18} strokeWidth={1.5} />
           </button>
         </nav>
       </>}
 
-      {!isMobile ? <><div className="scroll-meter" aria-hidden="true"><i style={{ transform: `scaleY(${Math.max(progress, 0.025)})` }} /></div><p className="scroll-cue" aria-hidden="true">Scroll to explore</p></> : null}
+      {!isMobile ? <nav className="desktop-story-controls" aria-label="Landing story controls">
+        <button type="button" className="desktop-story-back" aria-label="Previous story moment" title="Previous story moment" disabled={entering || progress < 0.04} onClick={() => moveDesktopStory(-1)}><ArrowLeft size={20} aria-hidden="true" /></button>
+        <button type="button" className="desktop-story-next" disabled={entering} onClick={() => progress >= 0.8 ? enterWorld() : moveDesktopStory(1)}>
+          {progress >= 0.8 ? "Start my reflection" : "Continue"}<ArrowRight size={20} aria-hidden="true" />
+        </button>
+        {progress < 0.8 ? <span className="desktop-scroll-option"><ArrowDown size={16} aria-hidden="true" /> Or scroll down</span> : null}
+      </nav> : null}
       <div className="entry-wash" aria-hidden="true" />
       <div className="landing-spacer" aria-hidden="true" />
     </main>

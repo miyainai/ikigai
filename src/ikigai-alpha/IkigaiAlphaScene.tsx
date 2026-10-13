@@ -198,9 +198,10 @@ interface IkigaiAlphaSceneProps {
   pendingReflectionId: string | null;
   onPendingScreenPosition: (x: number, y: number) => void;
   guideActive: boolean;
+  guidedFieldId: FieldId | null;
 }
 
-export function IkigaiAlphaScene({ reflections, analysis, pulseVersion, resetVersion, focusedFieldId, labelsVisible, selectedNodeId, onHover, onSelectNode, onFocusField, onSelectCenter, onDraggingChange, pendingReflectionId, onPendingScreenPosition, guideActive }: IkigaiAlphaSceneProps) {
+export function IkigaiAlphaScene({ reflections, analysis, pulseVersion, resetVersion, focusedFieldId, labelsVisible, selectedNodeId, onHover, onSelectNode, onFocusField, onSelectCenter, onDraggingChange, pendingReflectionId, onPendingScreenPosition, guideActive, guidedFieldId }: IkigaiAlphaSceneProps) {
   const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 800px)").matches);
   useEffect(() => {
     const media = window.matchMedia("(max-width: 800px)");
@@ -222,7 +223,7 @@ export function IkigaiAlphaScene({ reflections, analysis, pulseVersion, resetVer
     <LocusCanvas className="alpha-canvas" parameters={sceneParameters} resetVersion={resetVersion} cameraFocus={cameraFocus}>
       <InertialUniverse resetVersion={resetVersion} position={[-0.55, 0, 0]} onDraggingChange={onDraggingChange} renderBackdrop={(yaw, pitch) => <CosmicBackground parameters={sceneParameters} yaw={yaw} pitch={pitch} />}>
         <group scale={0.72}>
-          {fieldConfigs.map((config) => <Field key={config.id} config={config} reflections={reflections[config.id]} selected={focusedFieldId === config.id} focusActive={focusedFieldId !== null} labelsVisible={labelsVisible} selectedNodeId={selectedNodeId} onHover={onHover} onSelectNode={onSelectNode} onFocusField={onFocusField} pendingReflectionId={pendingReflectionId} onPendingScreenPosition={onPendingScreenPosition} guideActive={guideActive} compact={compact} />)}
+          {fieldConfigs.map((config) => <Field key={config.id} config={config} reflections={reflections[config.id]} selected={focusedFieldId === config.id} focusActive={focusedFieldId !== null} labelsVisible={labelsVisible} selectedNodeId={selectedNodeId} onHover={onHover} onSelectNode={onSelectNode} onFocusField={onFocusField} pendingReflectionId={pendingReflectionId} onPendingScreenPosition={onPendingScreenPosition} guideActive={guideActive && guidedFieldId === config.id} compact={compact} />)}
           <ResponsiveCenter analysis={analysis} pulseVersion={pulseVersion} focused={focusedFieldId !== null} onSelectCenter={onSelectCenter} />
         </group>
       </InertialUniverse>

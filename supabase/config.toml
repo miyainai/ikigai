@@ -1,3 +1,7 @@
 [functions.email-results]
 # The function verifies the bearer token with Auth /user before any work.
 verify_jwt = false
+
+[functions.activity-event]
+# Public write-only, fixed-schema event intake. No map access or user accounts.
+verify_jwt = false
